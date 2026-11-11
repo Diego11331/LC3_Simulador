@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador LC-3</title>
+<style>
+:root{--bg:#eceff2;--card:#fbfcfd;--fg:#14202b;--mut:#5d6b78;--bd:#cdd5dc;--acc:#0b6e8a;--onacc:#fff;--hl:#ffe9a8;--chg:#cfeee3;--err:#b3261e;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10171d;--card:#18222b;--fg:#e4eaef;--mut:#8fa0ae;--bd:#2d3b47;--acc:#5cc3e0;--onacc:#06232c;--hl:#4d4112;--chg:#17463a;--err:#ff8a80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10171d;--card:#18222b;--fg:#e4eaef;--mut:#8fa0ae;--bd:#2d3b47;--acc:#5cc3e0;--onacc:#06232c;--hl:#4d4112;--chg:#17463a;--err:#ff8a80;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif}
+h1{font:600 20px/1.2 Georgia,"Times New Roman",serif;margin:0}
+h2{font:600 13px/1.2 "Segoe UI",system-ui,sans-serif;margin:0 0 8px;color:var(--mut)}
+.mono,textarea,pre,table,input{font-family:ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace}
+header{max-width:1120px;margin:0 auto;padding:14px 12px 0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button,select{font:inherit;font-size:14px;padding:7px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--card);color:var(--fg);cursor:pointer}
+button.p{background:var(--acc);color:var(--onacc);border-color:var(--acc);font-weight:600}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{max-width:1120px;margin:0 auto;padding:12px;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:860px){main{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:12px;min-width:0}
+textarea{width:100%;height:300px;resize:vertical;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--fg);font-size:13px;line-height:1.5;padding:8px;tab-size:4}
+#st{margin-top:8px;font-size:13px;color:var(--mut);min-height:20px}
+#st.e{color:var(--err);font-weight:600}
+#regs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.r{border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:13px}
+.r b{display:block;font-weight:600;color:var(--mut);font-size:12px;font-family:"Segoe UI",system-ui,sans-serif}
+.r.c{background:var(--chg)}
+.r small{color:var(--mut)}
+#flags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:13px}
+.f{padding:2px 8px;border:1px solid var(--bd);border-radius:999px;color:var(--mut)}
+.f.on{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+pre#con{margin:0;height:150px;overflow:auto;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:8px;font-size:13px;white-space:pre-wrap;word-break:break-all}
+.in{display:flex;gap:6px;margin-top:8px}
+.in input{flex:1;min-width:0;font-size:16px;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--fg)}
+.sc{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+td{padding:2px 6px;white-space:nowrap}
+tr.pc td{background:var(--hl)}
+td.l{color:var(--acc)}td.m{color:var(--mut)}
+.go{display:flex;gap:6px;align-items:center;margin-bottom:8px;font-size:13px;color:var(--mut)}
+.go input{width:90px;font-size:14px;padding:4px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--fg)}
+.h{width:4.6em;font-size:12.5px;padding:1px 3px;border:1px solid var(--bd);border-radius:4px;background:var(--bg);color:var(--fg)}
+#syms{display:flex;flex-wrap:wrap;gap:6px}
+.sym{font:12.5px ui-monospace,Menlo,Consolas,monospace;padding:3px 8px}
+td.a{cursor:pointer;text-align:center}.bp{color:var(--err)}
+</style></head><body>
+<header>
+<h1>Simulador LC-3</h1>
+<div class="bar">
+<select id="ex" aria-label="Ejemplos"><option value="0">Hola mundo</option><option value="1">Cuenta atrás</option><option value="2">Eco de teclado</option><option value="3">Sondeo KBSR/DSR</option><option value="4">Interrupción de teclado</option></select>
+<button id="bA" class="p">Ensamblar</button>
+<button id="bS">Paso</button><button id="bO">Paso sobre</button>
+<button id="bR">Ejecutar</button>
+<select id="spd" aria-label="Velocidad"><option value="0">Lento</option><option value="1">Medio</option><option value="2" selected>Rápido</option></select><select id="mode" aria-label="Modo inicial"><option value="0">Inicio: supervisor</option><option value="1">Inicio: usuario</option></select><button id="bW">Guardar .asm</button><button id="bB">Guardar .obj</button><input type="file" id="fl" accept=".asm,.txt,.obj" aria-label="Abrir .asm u .obj" style="max-width:190px;font-size:13px">
+</div></header>
+<main>
+<section>
+<div class="card"><h2>Código ensamblador</h2><textarea id="src" spellcheck="false" aria-label="Código"></textarea><div id="st"></div></div>
+<div class="card" style="margin-top:12px"><h2>Consola</h2><pre id="con"></pre>
+<div class="in"><input id="inp" placeholder="Entrada de teclado (para GETC e IN)" autocomplete="off"><button id="bI">Enviar</button></div></div>
+</section>
+<section>
+<div class="card"><h2>Registros</h2><div id="regs"></div><div id="flags"></div></div>
+<div class="card" style="margin-top:12px"><h2>Memoria</h2>
+<div class="go"><label for="go">Ir a x</label><input id="go" placeholder="3000"><span>Vacío = seguir el PC. Pulsa la primera columna para un punto de parada.</span></div>
+<div class="sc"><table id="mem"></table></div></div><div class="card" style="margin-top:12px"><h2>Símbolos</h2><div id="syms"></div></div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const mem=new Uint16Array(65536),R=new Array(8).fill(0);
+let pc=0x3000,ir=0,cc={n:0,z:1,p:0},state='idle',origin=0x3000,symAt={},inbuf=[],timer=null,viewAt=null,prev=R.slice(),steps=0,wasRun=false,msg='';
+const hx=(v,n=4)=>v.toString(16).toUpperCase().padStart(n,'0');
+const sx=(v,b)=>{v&=(1<<b)-1;return v&(1<<(b-1))?v-(1<<b):v};
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const EX=[
+`; Hola mundo
+.ORIG x3000
+      LEA R0, MSG    ; R0 = dirección del texto
+      PUTS           ; imprime hasta el 0 final
+      HALT
+MSG   .STRINGZ "Hola, mundo!"
+.END`,
+`; Imprime los dígitos 9 a 0
+.ORIG x3000
+      LD R1, N        ; contador
+      LD R2, ASCII    ; base ASCII de los dígitos
+LOOP  ADD R0, R1, R2
+      OUT
+      ADD R1, R1, #-1
+      BRzp LOOP       ; repite mientras R1 >= 0
+      HALT
+N     .FILL #9
+ASCII .FILL x30
+.END`,
+`; Repite lo que escribes hasta recibir un salto de línea
+.ORIG x3000
+LOOP  GETC
+      OUT
+      ADD R1, R0, #-10
+      BRnp LOOP
+      HALT
+.END`,
+`; Entrada/salida por sondeo de registros mapeados (usa Inicio: supervisor)
+.ORIG x3000
+RD    LDI R1, KBSR
+      BRzp RD         ; espera tecla (bit 15 de KBSR)
+      LDI R0, KBDR
+WR    LDI R1, DSR
+      BRzp WR         ; espera pantalla lista
+      STI R0, DDR
+      ADD R2, R0, #-10
+      BRnp RD
+      HALT
+KBSR  .FILL xFE00
+KBDR  .FILL xFE02
+DSR   .FILL xFE04
+DDR   .FILL xFE06
+.END`,
+`; Interrupción de teclado con RTI (usa Inicio: supervisor)
+.ORIG x0180
+      .FILL x2000     ; vector de la interrupción del teclado
+.ORIG x2000
+      ST R0, S0       ; manejador
+      LDI R0, KBDR
+      STI R0, DDR
+      LD R0, S0
+      RTI
+S0    .FILL #0
+KBDR  .FILL xFE02
+DDR   .FILL xFE06
+.ORIG x3000
+      LD R0, IE
+      STI R0, KBSR    ; activa IE en KBSR
+LOOP  ADD R3, R3, #1  ; trabajo principal
+      BRnzp LOOP      ; pulsa Ejecutar y escribe en la entrada
+KBSR  .FILL xFE00
+IE    .FILL x4000
+.END`];
+/* ---------- Ensamblador ---------- */
+const OPS=['ADD','AND','NOT','JMP','RET','JSR','JSRR','LD','LDI','LDR','LEA','ST','STI','STR','TRAP','RTI','NOP','GETC','OUT','PUTS','IN','PUTSP','HALT','.ORIG','.END','.FILL','.BLKW','.STRINGZ'];
+const isOp=w=>OPS.includes(w.toUpperCase())||/^BR[NZP]{0,3}$/i.test(w);
+const err=(ln,m)=>new Error('Línea '+ln+': '+m);
+function num(s){s=(s||'').trim();let m;if(m=s.match(/^#?(-?\d+)$/))return +m[1];if(m=s.match(/^(?:x|0x)(-?[0-9a-f]+)$/i))return parseInt(m[1],16);return NaN}
+function strip(l){let q=false;for(let i=0;i<l.length;i++){const c=l[i];if(c=='"'&&l[i-1]!='\\')q=!q;else if(c==';'&&!q)return l.slice(0,i)}return l}
+function unq(s,ln){const m=s.match(/^"((?:[^"\\]|\\.)*)"/);if(!m)throw err(ln,'Se esperaba una cadena entre comillas');
+return m[1].replace(/\\(.)/g,(_,c)=>({n:'\n',t:'\t',0:'\0'}[c]||c))}
+function assemble(src){
+ const items=[],segs=[],srcAt={},syms=Object.create(null);let loc=null,first=null,done=false;
+ src.split('\n').forEach((raw,i)=>{
+  if(done)return;const ln=i+1;let rest=strip(raw).trim();if(!rest)return;
+  const word=()=>{const m=rest.match(/^(\S+)\s*/);rest=rest.slice(m[0].length);return m[1]};
+  const f=word();let label=null,op='';
+  if(isOp(f))op=f;else{label=f.replace(/:$/,'');if(rest)op=word()}
+  op=op.toUpperCase();
+  if(op=='.ORIG'){loc=num(rest);if(isNaN(loc))throw err(ln,'Dirección .ORIG inválida');if(first===null)first=loc;segs.push({o:loc,e:loc})}
+  else if(loc===null&&(op||label))throw err(ln,'Falta .ORIG antes del código');
+  if(label){if(label in syms)throw err(ln,'Etiqueta repetida: '+label);syms[label]=loc}
+  if(!op||op=='.ORIG')return;
+  if(op=='.END'){done=true;return}
+  const it={ln,addr:loc,op,src:strip(raw).trim(),a:rest.split(',').map(s=>s.trim()),rest};
+  let size=1;
+  if(op=='.BLKW'){size=num(rest);if(isNaN(size)||size<1)throw err(ln,'Tamaño de .BLKW inválido')}
+  if(op=='.STRINGZ'){it.str=unq(rest,ln);size=it.str.length+1}
+  items.push(it);loc+=size;segs[segs.length-1].e=loc;
+ });
+ if(first===null)throw new Error('El programa necesita una directiva .ORIG');
+ const tmp=new Uint16Array(65536);
+ for(const it of items){const w=enc(it,syms);w.forEach((v,k)=>tmp[(it.addr+k)&0xFFFF]=v&0xFFFF)}
+ for(const it of items)srcAt[it.addr]=it.src;const st=segs.find(x=>x.o>=0x3000)||segs[0];return{tmp,syms,origin:st.o,segs,srcAt}
+}
+function enc(it,syms){
+ const{ln,addr,op,a}=it;
+ const reg=s=>{const m=/^R([0-7])$/i.exec(s||'');if(!m)throw err(ln,'Registro inválido: '+(s||'(falta)'));return+m[1]};
+ const off=(s,b,rel)=>{let v;if(s===undefined)throw err(ln,'Falta un operando');
+  if(s in syms)v=rel?syms[s]-(addr+1):syms[s];else v=num(s);
+  if(isNaN(v))throw err(ln,'Símbolo o número inválido: '+s);
+  const lim=1<<(b-1);if(v<-lim||v>=lim)throw err(ln,'Desplazamiento fuera de rango ('+b+' bits): '+s);return v&((1<<b)-1)};
+ const T={GETC:0xF020,OUT:0xF021,PUTS:0xF022,IN:0xF023,PUTSP:0xF024,HALT:0xF025,RET:0xC1C0,RTI:0x8000,NOP:0};
+ if(op in T)return[T[op]];
+ const M={LD:0x2000,ST:0x3000,LDI:0xA000,STI:0xB000,LEA:0xE000};
+ if(op in M)return[M[op]|reg(a[0])<<9|off(a[1],9,true)];
+ switch(op){
+  case'ADD':case'AND':{const o=op=='ADD'?0x1000:0x5000,d=reg(a[0]),s=reg(a[1]);
+   if(/^R[0-7]$/i.test(a[2]||''))return[o|d<<9|s<<6|reg(a[2])];
+   return[o|d<<9|s<<6|0x20|off(a[2],5,false)]}
+  case'NOT':return[0x903F|reg(a[0])<<9|reg(a[1])<<6];
+  case'JMP':return[0xC000|reg(a[0])<<6];
+  case'JSR':return[0x4800|off(a[0],11,true)];
+  case'JSRR':return[0x4000|reg(a[0])<<6];
+  case'LDR':return[0x6000|reg(a[0])<<9|reg(a[1])<<6|off(a[2],6,false)];
+  case'STR':return[0x7000|reg(a[0])<<9|reg(a[1])<<6|off(a[2],6,false)];
+  case'TRAP':{const v=num(a[0]);if(isNaN(v)||v<0||v>255)throw err(ln,'Vector TRAP inválido');return[0xF000|v]}
+  case'.FILL':{const v=a[0]in syms?syms[a[0]]:num(a[0]);if(isNaN(v))throw err(ln,'Valor .FILL inválido');return[v]}
+  case'.BLKW':return new Array(num(it.rest)).fill(0);
+  case'.STRINGZ':return[...it.str].map(c=>c.charCodeAt(0)).concat(0);
+ }
+ const m=/^BR(.*)$/i.exec(op),f=m[1].toLowerCase()||'nzp';
+ return[((f.includes('n')?4:0)|(f.includes('z')?2:0)|(f.includes('p')?1:0))<<9|off(a[0],9,true)];
+}
+function dis(w){
+ const op=w>>12,d=(w>>9)&7,s=(w>>6)&7;
+ switch(op){
+  case 1:case 5:{const m=op==1?'ADD':'AND';return w&32?m+' R'+d+', R'+s+', #'+sx(w,5):m+' R'+d+', R'+s+', R'+(w&7)}
+  case 9:return'NOT R'+d+', R'+s;
+  case 0:{const f=(w&0x800?'n':'')+(w&0x400?'z':'')+(w&0x200?'p':'');return w==0?'NOP':'BR'+f+' #'+sx(w,9)}
+  case 12:return s==7?'RET':'JMP R'+s;
+  case 4:return w&0x800?'JSR #'+sx(w,11):'JSRR R'+s;
+  case 2:case 3:case 10:case 11:case 14:return({2:'LD',3:'ST',10:'LDI',11:'STI',14:'LEA'})[op]+' R'+d+', #'+sx(w,9);
+  case 6:case 7:return(op==6?'LDR':'STR')+' R'+d+', R'+s+', #'+sx(w,6);
+  case 8:return'RTI';
+  case 15:return({0x20:'GETC',0x21:'OUT',0x22:'PUTS',0x23:'IN',0x24:'PUTSP',0x25:'HALT'})[w&255]||'TRAP x'+hx(w&255,2);
+ }
+ return'';
+}
+/* ---------- Máquina ---------- */
+let user=0,prio=0,ssp=0x3000,usp=0xFE00,kbie=0,mcr=0x8000,bps=new Set(),tmpBp=-1,fst=false,symTab={},srcAt={},segs=[];
+const psr=()=>user<<15|prio<<8|cc.n<<2|cc.z<<1|cc.p;
+const setPsr=v=>{user=v>>15&1;prio=v>>8&7;cc={n:v>>2&1,z:v>>1&1,p:v&1}};
+const out=s=>{const c=$('con');c.textContent=(c.textContent+s).slice(-20000);c.scrollTop=c.scrollHeight};
+const stop=m=>{state='halted';msg=m};
+class Acv{constructor(a){this.a=a}}
+const prot=a=>user&&(a<0x3000||a>=0xFE00);
+function rd(a){a&=0xFFFF;if(prot(a))throw new Acv(a);
+ if(a==0xFE00)return(inbuf.length?0x8000:0)|kbie<<14;
+ if(a==0xFE02)return inbuf.length?inbuf.shift().charCodeAt(0)&255:0;
+ if(a==0xFE04)return 0x8000;if(a==0xFFFE)return mcr;return mem[a]}
+function wr(a,v){a&=0xFFFF;v&=0xFFFF;if(prot(a))throw new Acv(a);
+ if(a==0xFE00){kbie=v>>14&1;return}
+ if(a==0xFE06){out(String.fromCharCode(v&255));return}
+ if(a==0xFFFE){mcr=v;if(!(v&0x8000)){out('\n--- Reloj detenido (MCR) ---\n');stop('Detenido: MCR')}return}
+ mem[a]=v}
+function enter(vec,ret,np){const p=psr();if(user){usp=R[6];R[6]=ssp}user=0;if(np!==undefined)prio=np;
+ R[6]=(R[6]-1)&0xFFFF;mem[R[6]]=p;R[6]=(R[6]-1)&0xFFFF;mem[R[6]]=ret;pc=mem[vec]}
+function raise(vec,why,ret){if(!mem[vec]){pc=ret;stop(why+' (sin manejador en x'+hx(vec)+')')}else enter(vec,ret)}
+function setcc(r,v){R[r]=v&0xFFFF;const x=R[r];cc={n:+(x>>15),z:+(x==0),p:+(x!=0&&!(x>>15))}}
+function step(){
+ if(state=='halted'||state=='idle')return;
+ steps++;
+ if(kbie&&inbuf.length&&prio<4&&mem[0x180]){enter(0x180,pc,4);return}
+ const at=pc;
+ try{exec()}catch(e){if(!(e instanceof Acv))throw e;raise(0x102,'Violación de acceso a x'+hx(e.a)+' en x'+hx(at),(at+1)&0xFFFF)}
+}
+function exec(){
+ ir=rd(pc);pc=(pc+1)&0xFFFF;
+ const op=ir>>12,d=(ir>>9)&7,s=(ir>>6)&7,o9=sx(ir,9),imm=ir&32,at=(pc-1)&0xFFFF;
+ switch(op){
+  case 1:setcc(d,R[s]+(imm?sx(ir,5):R[ir&7]));break;
+  case 5:setcc(d,R[s]&(imm?sx(ir,5):R[ir&7]));break;
+  case 9:setcc(d,~R[s]);break;
+  case 0:if(d&(cc.n<<2|cc.z<<1|cc.p))pc=(pc+o9)&0xFFFF;break;
+  case 12:pc=R[s];break;
+  case 4:{const t=R[s];R[7]=pc;pc=ir&0x800?(pc+sx(ir,11))&0xFFFF:t;break}
+  case 2:setcc(d,rd(pc+o9));break;
+  case 10:setcc(d,rd(rd(pc+o9)));break;
+  case 14:setcc(d,pc+o9);break;
+  case 3:wr(pc+o9,R[d]);break;
+  case 11:wr(rd(pc+o9),R[d]);break;
+  case 6:setcc(d,rd(R[s]+sx(ir,6)));break;
+  case 7:wr(R[s]+sx(ir,6),R[d]);break;
+  case 8:if(user){raise(0x100,'Violación de privilegio: RTI en modo usuario',pc);break}
+   {const np=mem[R[6]],pp=mem[(R[6]+1)&0xFFFF];R[6]=(R[6]+2)&0xFFFF;pc=np;setPsr(pp);if(user){ssp=R[6];R[6]=usp}}break;
+  case 13:raise(0x101,'Instrucción ilegal x'+hx(ir)+' en x'+hx(at),pc);break;
+  case 15:{const v=ir&255;if(mem[v]){R[7]=pc;pc=mem[v]}else trap(v)}break;
+ }
+}
+function trap(v){
+ if((v==0x20||v==0x23)&&!inbuf.length){pc=(pc-1)&0xFFFF;steps--;state='waiting';return}
+ R[7]=pc;
+ if(v==0x20)R[0]=inbuf.shift().charCodeAt(0)&255;
+ else if(v==0x23){out('Introduce un carácter: ');R[0]=inbuf.shift().charCodeAt(0)&255;out(String.fromCharCode(R[0])+'\n')}
+ else if(v==0x21)out(String.fromCharCode(R[0]&255));
+ else if(v==0x22){for(let a=R[0];mem[a];a=(a+1)&0xFFFF)out(String.fromCharCode(mem[a]&255))}
+ else if(v==0x24){for(let a=R[0];mem[a];a=(a+1)&0xFFFF){out(String.fromCharCode(mem[a]&255));if(mem[a]>>8)out(String.fromCharCode(mem[a]>>8))}}
+ else if(v==0x25){out('\n--- Programa detenido (HALT) ---\n');stop('Detenido: HALT')}
+ else stop('TRAP x'+hx(v,2)+' sin rutina: define su vector en x00'+hx(v,2));
+}
+/* ---------- Interfaz ---------- */
+const SP=[{d:200,n:1},{d:30,n:1},{d:0,n:3000}];
+const NAMES={idle:'Escribe un programa y pulsa Ensamblar.',running:'Ejecutando…',waiting:'Esperando teclado: escribe abajo y pulsa Enviar.',halted:'Detenido.'};
+const chip=(t,on)=>'<span class="f'+(on?' on':'')+'">'+t+'</span>';
+function render(){
+ let h='';
+ for(let i=0;i<8;i++)h+='<div class="r'+(R[i]!=prev[i]?' c':'')+'"><b>R'+i+'</b><input class="h" data-r="'+i+'" value="'+hx(R[i])+'" aria-label="R'+i+'"> <small>'+sx(R[i],16)+'</small></div>';
+ h+='<div class="r"><b>PC</b><input class="h" data-r="pc" value="'+hx(pc)+'" aria-label="PC"></div><div class="r"><b>IR</b>x'+hx(ir)+'</div><div class="r" style="grid-column:span 2"><b>Instrucción</b>'+esc(dis(ir)||'-')+'</div>';
+ $('regs').innerHTML=h;prev=R.slice();
+ $('flags').innerHTML=['n','z','p'].map(k=>chip(k.toUpperCase(),cc[k])).join('')+chip(user?'usuario':'supervisor')+chip('prio '+prio)+chip('PSR x'+hx(psr()))+chip('KBSR.IE '+kbie,kbie)+chip('SSP x'+hx(user?ssp:R[6]))+chip('USP x'+hx(user?R[6]:usp))+chip('pasos '+steps);
+ const base=viewAt!==null?viewAt:Math.max(0,Math.min(pc-3,0xFFFF-17));h='';
+ for(let a=base;a<base+18&&a<=0xFFFF;a++){const w=mem[a];
+  h+='<tr'+(a==pc&&state!='idle'?' class="pc"':'')+'><td class="a bp" data-bp="'+a+'">'+(bps.has(a)?'●':'·')+'</td><td class="l">'+esc(symAt[a]||'')+'</td><td class="m">x'+hx(a)+'</td><td><input class="h" data-m="'+a+'" value="'+hx(w)+'" aria-label="Memoria x'+hx(a)+'"></td><td class="m">'+w.toString(2).padStart(16,'0')+'</td><td>'+esc(dis(w))+'</td><td class="m">'+esc(srcAt[a]||'')+'</td></tr>'}
+ $('mem').innerHTML=h;
+ const st=$('st');st.className=/^(Línea|El programa)/.test(msg)?'e':'';
+ st.textContent=msg||(state=='ready'?(steps?'En pausa.':'Listo: programa cargado, PC = x'+hx(pc)):NAMES[state]);
+ $('bR').textContent=state=='running'?'Pausar':'Ejecutar';
+ $('bR').disabled=$('bS').disabled=$('bO').disabled=(state=='idle'||state=='halted');
+}
+function reset(){R.fill(0);R[6]=0xFE00;prev=R.slice();pc=origin;ir=0;cc={n:0,z:1,p:0};user=+$('mode').value;prio=0;ssp=0x3000;usp=0xFE00;kbie=0;mcr=0x8000;inbuf=[];$('con').textContent='';steps=0;viewAt=null;$('go').value='';clearTimeout(timer);state='ready';msg=''}
+function syms(){$('syms').innerHTML=Object.entries(symTab).sort((a,b)=>a[1]-b[1]).map(([k,v])=>'<button class="sym" data-go="'+v+'">'+esc(k)+' x'+hx(v)+'</button>').join('')||'Sin símbolos'}
+function load(){
+ try{const r=assemble($('src').value);mem.fill(0);mem.set(r.tmp);origin=r.origin;segs=r.segs;srcAt=r.srcAt;symTab=r.syms;symAt={};for(const k in symTab)symAt[symTab[k]]=k;reset();syms()}
+ catch(e){clearTimeout(timer);state='idle';msg=e.message}
+ render();
+}
+function tick(){
+ if(state!='running')return;const sp=SP[$('spd').value];
+ for(let i=0;i<sp.n&&state=='running';i++){
+  if(!fst&&(bps.has(pc)||pc==tmpBp)){state='ready';msg=bps.has(pc)?'Punto de parada en x'+hx(pc):'Paso sobre completado';tmpBp=-1;break}
+  fst=false;step()}
+ render();if(state=='running')timer=setTimeout(tick,sp.d)
+}
+function go(){wasRun=true;fst=true;state='running';msg='';tick()}
+const dl=(n,d)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([d]));a.download=n;a.click()};
+$('bA').onclick=load;
+$('bS').onclick=()=>{clearTimeout(timer);wasRun=false;msg='';if(state=='running'||state=='waiting')state='ready';step();render()};
+$('bO').onclick=()=>{const op=mem[pc]>>12;if(op==4||op==15){clearTimeout(timer);tmpBp=(pc+1)&0xFFFF;go()}else $('bS').click()};
+$('bR').onclick=()=>{if(state=='running'){clearTimeout(timer);wasRun=false;state='ready';render()}else if(state=='ready'||state=='waiting')go()};
+function send(){
+ const t=$('inp').value;$('inp').value='';
+ for(const c of t+'\n')inbuf.push(c);
+ if(state=='waiting'&&wasRun){state='running';tick()}else if(state=='waiting'){state='ready';render()}
+}
+$('bI').onclick=send;
+$('inp').onkeydown=e=>{if(e.key=='Enter')send()};
+$('ex').onchange=()=>{$('src').value=EX[$('ex').value];load()};
+$('mode').onchange=()=>{if(state!='idle')load()};
+$('go').oninput=()=>{const v=parseInt($('go').value.replace(/^x/i,''),16);viewAt=isNaN(v)?null:Math.min(v,0xFFFF);render()};
+$('bW').onclick=()=>dl('programa.asm',$('src').value);
+$('bB').onclick=()=>{const s=segs.find(x=>x.o==origin);if(!s)return;const n=s.e-s.o,b=new DataView(new ArrayBuffer(2+2*n));b.setUint16(0,s.o);for(let i=0;i<n;i++)b.setUint16(2+2*i,mem[s.o+i]);dl('programa.obj',b.buffer)};
+$('fl').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ if(/\.obj$/i.test(f.name)){r.onload=()=>{const b=new DataView(r.result);mem.fill(0);origin=b.getUint16(0);const n=(b.byteLength-2)>>1;for(let i=0;i<n;i++)mem[(origin+i)&0xFFFF]=b.getUint16(2+2*i);segs=[{o:origin,e:origin+n}];symTab={};symAt={};srcAt={};reset();syms();render()};r.readAsArrayBuffer(f)}
+ else{r.onload=()=>{$('src').value=r.result;load()};r.readAsText(f)}};
+document.addEventListener('change',e=>{const t=e.target;if(!('r' in t.dataset||'m' in t.dataset))return;const v=parseInt(t.value,16);
+ if(!isNaN(v)){if('r' in t.dataset){if(t.dataset.r=='pc')pc=v&0xFFFF;else R[t.dataset.r]=v&0xFFFF}else mem[+t.dataset.m]=v&0xFFFF}render()});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-bp],[data-go]');if(!t)return;
+ if('bp' in t.dataset){const a=+t.dataset.bp;bps.has(a)?bps.delete(a):bps.add(a)}else{viewAt=+t.dataset.go;$('go').value=hx(viewAt)}render()});
+$('src').value=EX[0];load();
+</script></body></html>
