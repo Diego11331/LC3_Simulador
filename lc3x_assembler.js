@@ -14,9 +14,9 @@ class LC3XAssembler {
   }
   static isMn(u) { return this.MN.has(u) || /^BR[NZP]{0,3}$/.test(u) || /^(MULQ|DIVQ)(8|12|14|15)$/.test(u); }
 
-  static assemble(src) {
+  static assemble(src, o = {}) {
     const E = [], S = {}, I = [];
-    let org = 0x3000, pc = org, orgSet = false, done = false;
+    let org = o.base ?? 0x3000, pc = org, orgSet = false, done = false;
     const fail = (ln, m) => E.push('Línea ' + ln + ': ' + m);
 
     src.split('\n').forEach((raw, i) => {
@@ -30,7 +30,8 @@ class LC3XAssembler {
       if (!l) return;
       const first = l.match(/^[^\s,]+/)[0];
       const fu = first.replace(/:$/, '').toUpperCase();
-      if (first.endsWith(':') || (!first.startsWith('.') && !this.isMn(fu))) {
+      const rt = ((l.slice(first.length).trim().match(/^[^\s,]+/) || [''])[0]).toUpperCase();
+      if (first.endsWith(':') || (!first.startsWith('.') && (!this.isMn(fu) || (rt && (this.isMn(rt) || rt[0] === '.'))))) {
         if (!/^[A-Za-z_]\w*$/.test(first.replace(/:$/, ''))) return fail(ln, 'etiqueta o instrucción inválida: ' + first);
         if (S[fu] !== undefined) fail(ln, 'etiqueta repetida: ' + first); else S[fu] = pc;
         l = l.slice(first.length).trim();
@@ -42,12 +43,14 @@ class LC3XAssembler {
       let size = 2;
       if (op === '.END') { done = true; return; }
       if (op === '.ORIG') {
+        if (o.ignoreOrig) return;
         const v = this.num(args);
         if (orgSet || I.length) return fail(ln, '.ORIG debe ir una sola vez, al principio');
         if (isNaN(v) || v < 0 || v > 0xFFFF || (v & 1)) return fail(ln, '.ORIG inválido (dirección par de 16 bits): ' + args);
         org = pc = v; orgSet = true; return;
       }
-      if (op === '.BLKW') { const n = this.num(args); if (isNaN(n) || n < 0) return fail(ln, '.BLKW necesita un número'); size = 2 * n; }
+      if (op === '.EXTERNAL') size = 0;
+      else if (op === '.BLKW') { const n = this.num(args); if (isNaN(n) || n < 0) return fail(ln, '.BLKW necesita un número'); size = 2 * n; }
       else if (op === '.STRINGZ') {
         const m = args.match(/^"((?:[^"\\]|\\.)*)"$/);
         if (!m) return fail(ln, '.STRINGZ necesita una cadena entre comillas');
@@ -62,14 +65,60 @@ class LC3XAssembler {
     });
 
     I.forEach(it => {
-      try { it.w = this.encode(it, S); } catch (e) { fail(it.ln, e.message); }
+      try { it.w = this.encode(it, S, o); } catch (e) { fail(it.ln, e.message); }
     });
     const bytes = new Uint8Array(pc - org);
     I.forEach(it => it.w.forEach((w, k) => { bytes[it.addr - org + 2 * k] = w & 255; bytes[it.addr - org + 2 * k + 1] = w >> 8; }));
-    return { origin: org, bytes, size: bytes.length, syms: S, errors: E, listing: I };
+    return { origin: org, bytes, size: bytes.length, syms: S, errors: E, listing: I, hasOrig: orgSet };
   }
 
-  static encode(it, S) {
+  // ---- Enlazador: mods = [{name, src}]. El módulo con .ORIG va primero; los demás se ubican a continuación. ----
+  static link(mods) {
+    const dummy = () => 0;
+    let mi = mods.findIndex(m => /^\s*\.ORIG/im.test(m.src)); if (mi < 0) mi = 0;
+    const run = (base, ext) => mods.map((m, i) => this.assemble(m.src, { base: base[i], ext, ignoreOrig: i !== mi }));
+    const base = mods.map(() => 0x3000);
+    let res = run(base, dummy), pc = res[mi].origin;
+    [mi].concat(mods.map((_, i) => i).filter(i => i !== mi)).forEach(i => { base[i] = pc; pc += res[i].size; });
+    res = run(base, dummy);
+    const find = key => {
+      const [mod, ...r] = key.split('-'), lab = r.join('-');
+      for (let i = 0; i < mods.length; i++) {
+        const n = mods[i].name.toUpperCase();
+        if (n === mod || n.replace(/^G\d+_/, '') === mod) { const a = res[i].syms[lab]; if (a !== undefined) return a; }
+      }
+    };
+    res = run(base, find);
+    const errors = [];
+    res.forEach((r, i) => r.errors.forEach(e => errors.push((mods.length > 1 ? mods[i].name + ': ' : '') + e)));
+    const lo = Math.min(...res.map(r => r.origin)), hi = Math.max(...res.map(r => r.origin + r.size));
+    if (hi > 0x10000) errors.push('el programa enlazado no entra en memoria (termina en x' + hi.toString(16) + ')');
+    const bytes = new Uint8Array(Math.max(0, hi - lo));
+    if (!errors.length) res.forEach(r => bytes.set(r.bytes, r.origin - lo));
+    const listing = [].concat(...res.map((r, i) => r.listing.filter(x => x.size).map(x => Object.assign({}, x, { src: (i === mi ? '' : mods[i].name + ': ') + x.src }))));
+    return { origin: lo, bytes, size: bytes.length, syms: res[mi].syms, errors, listing, hasOrig: true,
+      modules: mods.map((m, i) => ({ name: m.name, base: res[i].origin, size: res[i].size })) };
+  }
+  // ---- Formatos de archivo: 2 primeros bytes = dirección de origen (little-endian) ----
+  static toBin(r) { const u = new Uint8Array(r.size + 2); u[0] = r.origin & 255; u[1] = r.origin >> 8; u.set(r.bytes, 2); return u; }
+  static toHex(r) {
+    const h = v => v.toString(16).toUpperCase().padStart(4, '0'), L = [h(r.origin)];
+    for (let k = 0; k < r.size; k += 2) L.push(h(r.bytes[k] | ((r.bytes[k + 1] || 0) << 8)));
+    return L.join('\n') + '\n';
+  }
+  static fromBin(u) {
+    if (u.length < 2) throw Error('archivo .bin vacío');
+    return { origin: u[0] | (u[1] << 8), bytes: Uint8Array.from(u.subarray(2)), size: u.length - 2, syms: {}, errors: [], listing: [] };
+  }
+  static fromHex(t) {
+    const w = t.replace(/;.*$/gm, '').split(/\s+/).filter(Boolean).map(x => /^#/.test(x) ? parseInt(x.slice(1), 10) & 0xFFFF : parseInt(x.replace(/^0?x/i, ''), 16) & 0xFFFF);
+    if (!w.length || w.some(isNaN)) throw Error('archivo hexadecimal inválido');
+    const bytes = new Uint8Array((w.length - 1) * 2);
+    w.slice(1).forEach((v, k) => { bytes[2 * k] = v & 255; bytes[2 * k + 1] = v >> 8; });
+    return { origin: w[0], bytes, size: bytes.length, syms: {}, errors: [], listing: [] };
+  }
+
+  static encode(it, S, o = {}) {
     const op = it.op, addr = it.addr, A = it.args.split(/[\s,]+/).filter(Boolean), O = this.OPC;
     const F = (...p) => p.reduce((v, [x, w]) => (v << w) | (x & ((1 << w) - 1)), 0);
     const R = t => { const m = /^R([0-7])$/i.exec(t || ''); if (!m) throw Error('registro inválido: ' + (t || 'falta operando')); return +m[1]; };
@@ -90,9 +139,12 @@ class LC3XAssembler {
     const BYTES = (n, lo, hi, even) => { if (even && (n & 1)) throw Error('el desplazamiento debe ser par (acceso de 16 bits)'); return n; };
     const rr = (o, mid) => F([O[o], 5], [R(A[0]), 3], [R(A[1]), 3], mid);
 
+    if (op === '.EXTERNAL') return [];
     if (op === '.FILL') {
       const key = (A[0] || '').toUpperCase();
-      return [S[key] !== undefined ? S[key] : V(A[0], -32768, 65535, 'valor') & 0xFFFF];
+      if (S[key] !== undefined) return [S[key]];
+      if (/^[A-Z_]\w*-[A-Z_]\w*$/.test(key)) { const v = o.ext && o.ext(key); if (v === undefined) throw Error('símbolo externo no resuelto: ' + A[0]); return [v & 0xFFFF]; }
+      return [V(A[0], -32768, 65535, 'valor') & 0xFFFF];
     }
     if (op === '.BLKW') return new Array(this.num(it.args)).fill(0);
     if (it.bytes) { const w = []; for (let k = 0; k < it.bytes.length; k += 2) w.push(it.bytes[k] | ((it.bytes[k + 1] || 0) << 8)); return w; }

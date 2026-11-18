@@ -15,21 +15,24 @@
     <button id="bStep">Paso</button>
     <button class="s" id="bRun">Ejecutar</button>
     <button id="bRst">Reiniciar</button>
+    <button id="bMod">Módulos .asm</button><button id="bLoad">Cargar .bin/.hex</button>
+    <button id="bBin">Bajar .bin</button><button id="bHex">Bajar .hex</button><button id="bRep">Informe</button>
+    <input type="file" id="fMod" multiple accept=".asm,.txt" hidden><input type="file" id="fLoad" accept=".bin,.hex,.txt" hidden>
   </nav>
 </header>
 <main>
   <div class="col">
     <section class="card"><h2>Código fuente</h2>
       <textarea id="src" spellcheck="false" aria-label="Código assembly"></textarea>
-      <div id="msg"></div>
-      <p class="help">LDR/STR toman el desplazamiento en bytes (par, −32 a 30); LDBL/LDBH/STBL/STBH en bytes (−16 a 15). Los saltos y LD/ST/LEA usan etiquetas.</p>
+      <div id="msg"></div><div id="mods" class="help"></div>
+      <p class="help">LDR/STR toman el desplazamiento en bytes (par, −32 a 30); LDBL/LDBH/STBL/STBH en bytes (−16 a 15). Los saltos y LD/ST/LEA usan etiquetas. «Módulos .asm» enlaza archivos: .EXTERNAL MOD-ETIQ y .FILL MOD-ETIQ.</p>
     </section>
     <section class="card"><h2>Listado</h2><div id="lst" class="m"></div></section>
   </div>
   <div class="col">
     <section class="card"><h2>Registros</h2><div id="regs" class="m"></div><div id="flags"></div></section>
     <section class="card"><h2>Métricas de ejecución</h2>
-      <div class="kv"><span>Instrucciones ejecutadas</span><span id="sCnt" class="m"></span><span>Tamaño del programa</span><span id="sSize" class="m"></span><span>Estado</span><span id="sSt"></span></div>
+      <div class="kv"><span>Instrucciones ejecutadas</span><span id="sCnt" class="m"></span><span>Tamaño del programa</span><span id="sSize" class="m"></span><span>Datos accedidos</span><span id="sDat" class="m"></span><span>Pico de pila</span><span id="sStk" class="m"></span><span>Límite de pasos</span><span><input id="lim" size="9" value="5000000"></span><span>Estado</span><span id="sSt"></span></div>
       <div id="hist"></div>
     </section>
   </div>

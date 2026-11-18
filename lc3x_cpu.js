@@ -7,7 +7,7 @@ class LC3XCPU {
   constructor() { this.mem = new Uint8Array(65536); this.reset(); }
 
   reset() {
-    this.mem.fill(0); this.r = new Uint16Array(8);
+    this.mem.fill(0); this.r = new Uint16Array(8); this.acc = new Uint8Array(65536); this.dcnt = 0; this.minSP = LC3XCPU.STACK;
     this.pc = 0x3000; this.n = 0; this.z = 1; this.p = 0; this.c = 0;
     this.halted = false; this.waiting = false; this.err = null;
     this.count = 0; this.hist = {}; this.out = ''; this.input = []; this.size = 0;
@@ -18,8 +18,11 @@ class LC3XCPU {
     this.mem.set(bytes, org); this.pc = org; this.size = bytes.length; this.r[6] = LC3XCPU.STACK;
   }
 
-  rd(a) { if (a & 1) throw Error('acceso de 16 bits en dirección impar x' + a.toString(16).toUpperCase()); return this.mem[a] | (this.mem[a + 1] << 8); }
-  wr(a, v) { if (a & 1) throw Error('acceso de 16 bits en dirección impar x' + a.toString(16).toUpperCase()); this.mem[a] = v & 255; this.mem[a + 1] = (v >> 8) & 255; }
+  rd(a) { if (a & 1) throw Error('acceso de 16 bits en dirección impar x' + a.toString(16).toUpperCase()); this.touch(a, 2); return this.mem[a] | (this.mem[a + 1] << 8); }
+  touch(a, n) { for (let k = 0; k < n; k++) { const x = (a + k) & 0xFFFF; if (!this.acc[x]) { this.acc[x] = 1; this.dcnt++; } } }
+  rb(a) { this.touch(a, 1); return this.mem[a]; }
+  wb(a, v) { this.touch(a, 1); this.mem[a] = v; }
+  wr(a, v) { if (a & 1) throw Error('acceso de 16 bits en dirección impar x' + a.toString(16).toUpperCase()); this.touch(a, 2); if (a >= 0xE000 && a < LC3XCPU.STACK && a < this.minSP) this.minSP = a; this.mem[a] = v & 255; this.mem[a + 1] = (v >> 8) & 255; }
   cc(v) { this.n = (v >> 15) & 1; this.z = +(v === 0); this.p = +(!this.n && v !== 0); }
 
   step() {
@@ -28,7 +31,7 @@ class LC3XCPU {
     const put = (d, v) => { R[d] = v & M; this.cc(R[d]); };
     let name = '', counted = true;
     try {
-      const ir = this.rd(this.pc); this.pc = (this.pc + 2) & M;
+      if (this.pc & 1) throw Error('salto a dirección impar: PC = x' + this.pc.toString(16).toUpperCase() + ' (las instrucciones deben estar alineadas)'); const ir = this.mem[this.pc] | (this.mem[this.pc + 1] << 8); this.pc = (this.pc + 2) & M;
       const op = ir >> 11, d = (ir >> 8) & 7, s = (ir >> 5) & 7, lo3 = ir & 7;
       name = LC3XCPU.NM[op];
       const imm4 = () => (ir >> 4) & 1 ? sx(ir & 15, 4) & M : R[lo3];
@@ -45,14 +48,14 @@ class LC3XCPU {
         case 12: this.pc = R[s]; if (s === 7) name = 'RET'; break;
         case 6: put(d, this.rd((R[s] + (sx(ir & 31, 5) << 1)) & M)); break;
         case 7: this.wr((R[s] + (sx(ir & 31, 5) << 1)) & M, R[d]); break;
-        case 10: put(d, this.mem[(R[s] + sx(ir & 31, 5)) & M]); break;
-        case 16: put(d, (this.mem[(R[s] + sx(ir & 31, 5)) & M] << 8) | (R[d] & 255)); break;
-        case 11: this.mem[(R[s] + sx(ir & 31, 5)) & M] = R[d] & 255; break;
-        case 17: this.mem[(R[s] + sx(ir & 31, 5)) & M] = R[d] >> 8; break;
+        case 10: put(d, this.rb((R[s] + sx(ir & 31, 5)) & M)); break;
+        case 16: put(d, (this.rb((R[s] + sx(ir & 31, 5)) & M) << 8) | (R[d] & 255)); break;
+        case 11: this.wb((R[s] + sx(ir & 31, 5)) & M, R[d] & 255); break;
+        case 17: this.wb((R[s] + sx(ir & 31, 5)) & M, R[d] >> 8); break;
         case 18: {
           const t = (ir >> 3) & 3, i = R[lo3];
           if (t === 0) put(d, this.rd((R[s] + 2 * i) & M));
-          else if (t < 3) put(d, t === 1 ? this.mem[(R[s] + i) & M] : sx(this.mem[(R[s] + i) & M], 8));
+          else if (t < 3) put(d, t === 1 ? this.rb((R[s] + i) & M) : sx(this.rb((R[s] + i) & M), 8));
           else throw Error('LDX con T=11 reservado');
           break;
         }
