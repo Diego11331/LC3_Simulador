@@ -96,7 +96,13 @@ class LC3XAssembler {
     const bytes = new Uint8Array(Math.max(0, hi - lo));
     if (!errors.length) res.forEach(r => bytes.set(r.bytes, r.origin - lo));
     const listing = [].concat(...res.map((r, i) => r.listing.filter(x => x.size).map(x => Object.assign({}, x, { src: (i === mi ? '' : mods[i].name + ': ') + x.src }))));
-    return { origin: lo, bytes, size: bytes.length, syms: res[mi].syms, errors, listing, hasOrig: true,
+    const allSyms = {};
+    res.forEach((r, i) => {
+      Object.entries(r.syms).forEach(([k, v]) => {
+        allSyms[mods[i].name + ':' + k] = v;
+      });
+    });
+    return { origin: lo, bytes, size: bytes.length, syms: res[mi].syms, allSyms, errors, listing, hasOrig: true,
       modules: mods.map((m, i) => ({ name: m.name, base: res[i].origin, size: res[i].size })) };
   }
   // ---- Formatos de archivo: 2 primeros bytes = dirección de origen (little-endian) ----

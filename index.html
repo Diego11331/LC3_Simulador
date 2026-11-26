@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -9,17 +9,80 @@
 </head>
 <body>
 <header>
-  <div><h1>Simulador funcional LC-3X</h1><p>Opcode de 5 bits, memoria direccionable por byte y punto fijo nativo.</p></div>
+  <div>
+    <h1>Simulador funcional LC-3X</h1>
+    <p>Arquitectura monociclo · Opcode de 5 bits, memoria direccionable por byte y punto fijo nativo.</p>
+  </div>
   <nav>
     <button class="p" id="bAsm">Ensamblar</button>
     <button id="bStep">Paso</button>
     <button class="s" id="bRun">Ejecutar</button>
     <button id="bRst">Reiniciar</button>
-    <button id="bMod">Módulos .asm</button><button id="bLoad">Cargar .bin/.hex</button>
-    <button id="bBin">Bajar .bin</button><button id="bHex">Bajar .hex</button><button id="bRep">Informe</button>
-    <input type="file" id="fMod" multiple accept=".asm,.txt" hidden><input type="file" id="fLoad" accept=".bin,.hex,.txt" hidden>
+    <button id="bMod">Módulos .asm</button>
+    <button id="bTestMode" class="t">Modo Prueba Módulos</button>
+    <button id="bLoad">Cargar .bin/.hex</button>
+    <button id="bBin">Bajar .bin</button>
+    <button id="bHex">Bajar .hex</button>
+    <button id="bRep">Informe</button>
+    <button id="bTheme" title="Cambiar entre tema Oscuro y Claro">Tema: Negro</button>
+    <input type="file" id="fMod" multiple accept=".asm,.txt" hidden>
+    <input type="file" id="fLoad" accept=".bin,.hex,.txt" hidden>
   </nav>
 </header>
+
+<section id="testPanel" class="card test-panel hidden">
+  <div class="test-header">
+    <div>
+      <h2>Banco de Pruebas de Módulos (Harness Unitario)</h2>
+      <p class="help" style="margin:2px 0 0">Cargá uno o varios módulos <code>.asm</code>, elegí la etiqueta/subrutina a invocar, seteá registros iniciales y ejecutá hasta <code>RET</code> sin escribir un <code>main</code>.</p>
+    </div>
+    <button id="bCloseTest">Cerrar Modo Prueba</button>
+  </div>
+  <div class="test-grid">
+    <div class="test-box">
+      <label class="lbl">1. Módulos cargados y subrutina destino</label>
+      <div class="bar">
+        <button id="bTestLoadMod" class="p">Cargar módulo(s) .asm</button>
+        <select id="selEntry" title="Etiqueta de entrada de la subrutina"></select>
+        <input id="inpEntryCustom" placeholder="o escribí etiqueta / x3000" size="18">
+      </div>
+      <div id="testModsInfo" class="help">Usando el código del editor principal (o cargá archivos .asm).</div>
+      <div class="bar" style="margin-top:8px">
+        <label for="tMaxSteps">Máx. pasos:</label>
+        <input id="tMaxSteps" size="8" value="100000">
+        <label for="tRetAddr">Dir. retorno:</label>
+        <input id="tRetAddr" size="6" value="FF00" title="Dirección trampa donde cae el RET">
+      </div>
+    </div>
+
+    <div class="test-box">
+      <label class="lbl">2. Registros de entrada (hex <code>x...</code> o decimal <code>#...</code> / entero)</label>
+      <div class="reg-inputs">
+        <label>R0 <input id="tr0" value="0"></label>
+        <label>R1 <input id="tr1" value="0"></label>
+        <label>R2 <input id="tr2" value="0"></label>
+        <label>R3 <input id="tr3" value="0"></label>
+        <label>R4 <input id="tr4" value="0"></label>
+        <label>R5 <input id="tr5" value="0"></label>
+        <label>R6 (SP) <input id="tr6" value="xFE00"></label>
+      </div>
+      <div class="bar" style="margin-top:8px">
+        <input id="tMemInit" style="flex:1" placeholder="Memoria previa opcional, ej: x4000=x000A, x4002=#25">
+      </div>
+    </div>
+
+    <div class="test-box">
+      <label class="lbl">3. Ejecución y aserción opcional</label>
+      <div class="bar">
+        <input id="tExpectReg" size="6" value="R0" placeholder="Reg">
+        <input id="tExpectVal" size="12" placeholder="Valor esperado (opc)">
+        <button id="bRunTest" class="s">Probar Subrutina</button>
+      </div>
+      <div id="testResult" class="test-res m">Listo para probar.</div>
+    </div>
+  </div>
+</section>
+
 <main>
   <div class="col">
     <section class="card"><h2>Código fuente</h2>
